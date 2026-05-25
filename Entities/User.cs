@@ -1,0 +1,18 @@
+namespace PickleballBookingSystem.Entities;
+
+public class User
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string Phone { get; set; } = string.Empty;
+    public string PasswordHash { get; set; } = string.Empty;
+    public string Role { get; set; } = "user";
+    public string? Avatar { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public int BookingsCount { get; set; }
+    public string Status { get; set; } = "active";
+
+    public ICollection<Booking> Bookings { get; set; } = new List<Booking>();
+    public ICollection<Notification> Notifications { get; set; } = new List<Notification>();
+}
