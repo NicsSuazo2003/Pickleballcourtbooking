@@ -8,4 +8,5 @@ public interface IBookingService
     Task<BookingDto?> TrackBookingAsync(string referenceCode, string email);
     Task<List<BookingDto>> GetAllBookingsAsync();
     Task<BookingDto> AdminUpdateBookingAsync(Guid id, AdminUpdateBookingRequest request);
+    Task AutoCompletePastBookingsAsync();
 }

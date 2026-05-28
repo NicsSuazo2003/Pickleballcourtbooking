@@ -68,6 +68,29 @@ public class BookingService : IBookingService
         return MapToDto(booking);
     }
 
+    public async Task AutoCompletePastBookingsAsync()
+    {
+        var now = DateTime.UtcNow;
+        var pastConfirmed = await _db.Bookings
+            .Where(b => b.Status == "confirmed")
+            .Include(b => b.Slots)
+            .ToListAsync();
+
+        foreach (var booking in pastConfirmed)
+        {
+            var lastSlot = booking.Slots.OrderByDescending(s => s.EndTime).FirstOrDefault();
+            if (lastSlot == null) continue;
+
+            var bookingEnd = booking.Date.Date.Add(lastSlot.EndTime.ToTimeSpan());
+            if (bookingEnd < now)
+            {
+                booking.Status = "completed";
+            }
+        }
+
+        await _db.SaveChangesAsync();
+    }
+
     private static BookingDto MapToDto(Booking b) => new(
         b.Id.ToString(),
         b.CustomerName,

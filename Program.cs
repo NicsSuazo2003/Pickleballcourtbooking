@@ -61,9 +61,13 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate(); // ← Add this line
+    await db.Database.MigrateAsync();
 
     DbSeeder.Initialize(db);
+
+    // Auto-complete past bookings
+    var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
+    await bookingService.AutoCompletePastBookingsAsync();
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
