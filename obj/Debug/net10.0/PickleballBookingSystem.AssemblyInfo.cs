@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("PickleballBookingSystem")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+43cb59c3ebab8844dd3304458b91d9e5454845a4")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+829fec6850dbcdb314a1dc8077ce6e8b189566e8")]
 [assembly: System.Reflection.AssemblyProductAttribute("PickleballBookingSystem")]
 [assembly: System.Reflection.AssemblyTitleAttribute("PickleballBookingSystem")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

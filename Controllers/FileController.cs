@@ -7,9 +7,14 @@ namespace PickleballBookingSystem.Controllers;
 [Authorize(Roles = "admin")]
 public class FileController : ControllerBase
 {
-    private readonly IWebHostEnvironment _env;
+    private readonly IConfiguration _config;
+    private readonly HttpClient _http;
 
-    public FileController(IWebHostEnvironment env) => _env = env;
+    public FileController(IConfiguration config, HttpClient http)
+    {
+        _config = config;
+        _http = http;
+    }
 
     [HttpPost("upload")]
     public async Task<IActionResult> Upload(IFormFile file)
@@ -24,33 +29,43 @@ public class FileController : ControllerBase
         if (file.Length > 5 * 1024 * 1024)
             return BadRequest(new { message = "File must be under 5MB" });
 
-        var uploadsFolder = Path.Combine(_env.WebRootPath, "images", "courts");
-        Directory.CreateDirectory(uploadsFolder);
-
+        var supabaseUrl = _config["Supabase:Url"]!;
+        var supabaseKey = _config["Supabase:Key"]!;
         var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
-        var filePath = Path.Combine(uploadsFolder, fileName);
 
-        using var stream = new FileStream(filePath, FileMode.Create);
-        await file.CopyToAsync(stream);
+        using var content = new StreamContent(file.OpenReadStream());
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
 
-        var url = $"/images/courts/{fileName}";
+        var request = new HttpRequestMessage(HttpMethod.Post,
+            $"{supabaseUrl}/storage/v1/object/courts/{fileName}")
+        {
+            Content = content
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", supabaseKey);
+
+        var response = await _http.SendAsync(request);
+        if (!response.IsSuccessStatusCode)
+            return BadRequest(new { message = "Upload failed" });
+
+        var url = $"{supabaseUrl}/storage/v1/object/public/courts/{fileName}";
         return Ok(new { url });
     }
 
     [HttpDelete]
-    public IActionResult Delete([FromBody] DeleteFileRequest request)
+    public async Task<IActionResult> Delete([FromBody] DeleteFileRequest request)
     {
-        if (string.IsNullOrEmpty(request.Url) || !request.Url.StartsWith("/images/"))
-            return BadRequest(new { message = "Invalid file path" });
+        if (string.IsNullOrEmpty(request.Url)) return BadRequest();
 
-        var filePath = Path.Combine(_env.WebRootPath, request.Url.TrimStart('/'));
-        if (System.IO.File.Exists(filePath))
-        {
-            System.IO.File.Delete(filePath);
-            return Ok(new { message = "File deleted" });
-        }
+        var supabaseUrl = _config["Supabase:Url"]!;
+        var supabaseKey = _config["Supabase:Key"]!;
+        var fileName = Path.GetFileName(new Uri(request.Url).AbsolutePath);
 
-        return NotFound(new { message = "File not found" });
+        var httpRequest = new HttpRequestMessage(HttpMethod.Delete,
+            $"{supabaseUrl}/storage/v1/object/courts/{fileName}");
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", supabaseKey);
+
+        await _http.SendAsync(httpRequest);
+        return Ok(new { message = "File deleted" });
     }
 }
 
