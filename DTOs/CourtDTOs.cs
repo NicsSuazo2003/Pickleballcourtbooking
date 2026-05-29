@@ -37,5 +37,6 @@ public record TimeSlotAvailabilityDto(
     string Date,
     string StartTime,
     string EndTime,
-    bool IsAvailable
+    bool IsAvailable,
+    decimal Price
 );

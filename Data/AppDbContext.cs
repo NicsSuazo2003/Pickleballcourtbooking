@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<TimeSlot> TimeSlots => Set<TimeSlot>();
     public DbSet<Notification> Notifications => Set<Notification>();
 
+    public DbSet<PriceRule> PriceRules => Set<PriceRule>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         foreach (var entity in modelBuilder.Model.GetEntityTypes())
