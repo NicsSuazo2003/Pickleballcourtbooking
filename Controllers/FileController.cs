@@ -37,7 +37,7 @@ public class FileController : ControllerBase
         content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
 
         var request = new HttpRequestMessage(HttpMethod.Post,
-            $"{supabaseUrl}/storage/v1/object/courts/{fileName}")
+            $"{supabaseUrl}/storage/v1/object/PickleImgs/{fileName}")
         {
             Content = content
         };
@@ -47,7 +47,7 @@ public class FileController : ControllerBase
         if (!response.IsSuccessStatusCode)
             return BadRequest(new { message = "Upload failed" });
 
-        var url = $"{supabaseUrl}/storage/v1/object/public/courts/{fileName}";
+        var url = $"{supabaseUrl}/storage/v1/object/public/PickleImgs/{fileName}";
         return Ok(new { url });
     }
 
@@ -61,7 +61,7 @@ public class FileController : ControllerBase
         var fileName = Path.GetFileName(new Uri(request.Url).AbsolutePath);
 
         var httpRequest = new HttpRequestMessage(HttpMethod.Delete,
-            $"{supabaseUrl}/storage/v1/object/courts/{fileName}");
+            $"{supabaseUrl}/storage/v1/object/PickleImgs/{fileName}");
         httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", supabaseKey);
 
         await _http.SendAsync(httpRequest);
