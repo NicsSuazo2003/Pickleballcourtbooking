@@ -10,11 +10,13 @@ public class BookingService : IBookingService
 {
     private readonly AppDbContext _db;
     private readonly EmailService _email;
+    private readonly IConfiguration _config;
 
-    public BookingService(AppDbContext db, EmailService email)
+    public BookingService(AppDbContext db, EmailService email, IConfiguration config)
     {
         _db = db;
         _email = email;
+        _config = config;
     }
 
     public async Task<BookingDto> CreateBookingAsync(CreateBookingRequest request)
@@ -24,7 +26,7 @@ public class BookingService : IBookingService
         // Check for double booking
         var requestedStartTimes = request.Slots.Select(s => TimeOnly.Parse(s.StartTime)).ToHashSet();
         var conflictingBookings = await _db.Bookings
-            .Where(b => b.Date.Date == bookingDate.Date && b.Status != "cancelled")
+            .Where(b => b.Date.Date == bookingDate.Date && b.Status != "cancelled" && b.Status != "expired")
             .Include(b => b.Slots)
             .ToListAsync();
         var bookedTimes = conflictingBookings
@@ -45,10 +47,11 @@ public class BookingService : IBookingService
             ReferenceCode = referenceCode,
             Date = bookingDate,
             TotalAmount = request.TotalAmount,
-            Status = "pending",
-            PaymentMethod = "cash",
+            Status = "pending_payment",
+            PaymentMethod = "gcash",
             Notes = request.Notes,
             CreatedAt = DateTime.UtcNow,
+            PaymentExpiresAt = DateTime.UtcNow.AddMinutes(30),
             Slots = request.Slots.Select(s => new TimeSlot
             {
                 Date = bookingDate,
@@ -100,6 +103,27 @@ public class BookingService : IBookingService
         return MapToDto(booking);
     }
 
+    public async Task<BookingDto> UploadPaymentScreenshotAsync(Guid id, string screenshotUrl)
+    {
+        var booking = await _db.Bookings
+            .Include(b => b.Slots)
+            .FirstOrDefaultAsync(b => b.Id == id)
+            ?? throw new KeyNotFoundException("Booking not found");
+
+        booking.PaymentScreenshot = screenshotUrl;
+        booking.Status = "payment_submitted";
+        await _db.SaveChangesAsync();
+
+        // Notify admin
+        try
+        {
+            await _email.NotifyAdminNewBookingAsync(booking.CustomerName, booking.ReferenceCode + " [PAYMENT]", booking.Date.ToString("yyyy-MM-dd"), "Screenshot uploaded", $"₱{booking.TotalAmount}");
+        }
+        catch { }
+
+        return MapToDto(booking);
+    }
+
     public async Task AutoCompletePastBookingsAsync()
     {
         var now = DateTime.UtcNow;
@@ -118,11 +142,26 @@ public class BookingService : IBookingService
         await _db.SaveChangesAsync();
     }
 
+    public async Task CancelExpiredPaymentsAsync()
+    {
+        var now = DateTime.UtcNow;
+        var expired = await _db.Bookings
+            .Where(b => b.Status == "pending_payment" && b.PaymentExpiresAt < now)
+            .ToListAsync();
+
+        foreach (var booking in expired)
+        {
+            booking.Status = "expired";
+        }
+        await _db.SaveChangesAsync();
+    }
+
     private static BookingDto MapToDto(Booking b) => new(
         b.Id.ToString(), b.CustomerName, b.CustomerEmail, b.CustomerPhone,
         b.ReferenceCode, b.Date.ToString("yyyy-MM-dd"),
         b.Slots.Select(s => new TimeSlotDto(s.Id.ToString(), s.Date.ToString("yyyy-MM-dd"),
             s.StartTime.ToString("HH:mm"), s.EndTime.ToString("HH:mm"), false)).ToList(),
-        b.TotalAmount, b.Status, b.PaymentMethod, b.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"), b.Notes
+        b.TotalAmount, b.Status, b.PaymentMethod, b.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"), b.Notes,
+        b.PaymentScreenshot, b.PaymentExpiresAt
     );
 }

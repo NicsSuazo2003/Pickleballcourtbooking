@@ -9,9 +9,11 @@ public class Booking
     public string ReferenceCode { get; set; } = string.Empty;
     public DateTime Date { get; set; }
     public decimal TotalAmount { get; set; }
-    public string Status { get; set; } = "pending";
-    public string PaymentMethod { get; set; } = "cash";
+    public string Status { get; set; } = "pending_payment";
+    public string PaymentMethod { get; set; } = "gcash";
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? PaymentExpiresAt { get; set; }
+    public string? PaymentScreenshot { get; set; }
     public string? Notes { get; set; }
 
     public ICollection<TimeSlot> Slots { get; set; } = new List<TimeSlot>();

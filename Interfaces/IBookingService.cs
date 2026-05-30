@@ -9,4 +9,7 @@ public interface IBookingService
     Task<List<BookingDto>> GetAllBookingsAsync();
     Task<BookingDto> AdminUpdateBookingAsync(Guid id, AdminUpdateBookingRequest request);
     Task AutoCompletePastBookingsAsync();
+    Task<BookingDto> UploadPaymentScreenshotAsync(Guid id, string screenshotUrl);
+    
+    Task CancelExpiredPaymentsAsync();
 }

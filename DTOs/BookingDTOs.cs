@@ -24,7 +24,9 @@ public record BookingDto(
     string Status,
     string PaymentMethod,
     string CreatedAt,
-    string? Notes
+    string? Notes,
+    string? PaymentScreenshot,
+    DateTime? PaymentExpiresAt
 );
 
 public record TimeSlotDto(
@@ -38,3 +40,5 @@ public record TimeSlotDto(
 public record AdminUpdateBookingRequest(string Status);
 
 public record TrackBookingRequest(string ReferenceCode, string Email);
+
+public record UploadPaymentScreenshotRequest(IFormFile Screenshot);

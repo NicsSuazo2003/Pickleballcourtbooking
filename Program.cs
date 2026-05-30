@@ -70,6 +70,7 @@ using (var scope = app.Services.CreateScope())
     // Auto-complete past bookings
     var bookingService = scope.ServiceProvider.GetRequiredService<IBookingService>();
     await bookingService.AutoCompletePastBookingsAsync();
+    await bookingService.CancelExpiredPaymentsAsync();
 }
 
 app.UseMiddleware<ExceptionMiddleware>();
