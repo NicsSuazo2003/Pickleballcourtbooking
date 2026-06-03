@@ -32,4 +32,24 @@ public class CourtController : ControllerBase
         var court = await _court.UpdateCourtSettingsAsync(request);
         return Ok(court);
     }
+
+    [Authorize(Roles = "admin"), HttpGet("blocked-dates")]
+    public async Task<ActionResult<List<BlockedDateDto>>> GetBlockedDates()
+    {
+        return Ok(await _court.GetBlockedDatesAsync());
+    }
+
+    [Authorize(Roles = "admin"), HttpPost("blocked-dates")]
+    public async Task<ActionResult<BlockedDateDto>> AddBlockedDate(CreateBlockedDateRequest request)
+    {
+        var result = await _court.AddBlockedDateAsync(request);
+        return CreatedAtAction(nameof(GetBlockedDates), result);
+    }
+
+    [Authorize(Roles = "admin"), HttpDelete("blocked-dates/{id}")]
+    public async Task<IActionResult> DeleteBlockedDate(Guid id)
+    {
+        await _court.DeleteBlockedDateAsync(id);
+        return NoContent();
+    }
 }

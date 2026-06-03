@@ -12,4 +12,7 @@ public interface ICourtService
     Task<PriceRuleDto> CreatePriceRuleAsync(CreatePriceRuleRequest request);
     Task<PriceRuleDto> UpdatePriceRuleAsync(Guid id, UpdatePriceRuleRequest request);
     Task DeletePriceRuleAsync(Guid id);
+    Task<List<BlockedDateDto>> GetBlockedDatesAsync();
+    Task<BlockedDateDto> AddBlockedDateAsync(CreateBlockedDateRequest request);
+    Task DeleteBlockedDateAsync(Guid id);
 }

@@ -32,13 +32,34 @@ public class CourtService : ICourtService
 
         var bookedTimes = await _db.TimeSlots
             .Where(s => s.Date.Date == date.Date)
-            .Join(_db.Bookings.Where(b => b.Status != "cancelled"),
+            .Join(_db.Bookings.Where(b => b.Status != "cancelled" && b.Status != "expired"),
                 s => s.BookingId, b => b.Id, (s, b) => s.StartTime)
             .ToListAsync();
 
         var bookedSet = bookedTimes.Select(t => $"{t.Hour:D2}:00").ToHashSet();
+
+        // Check blocked dates
+        var blockedDates = await _db.BlockedDates
+            .Where(b => b.Date.Date == date.Date)
+            .ToListAsync();
+
+        var blockedSet = new HashSet<int>();
+        foreach (var bd in blockedDates)
+        {
+            if (bd.StartTime == null) // All day blocked
+            {
+                for (int h = openHour; h < closeHour; h++) blockedSet.Add(h);
+            }
+            else
+            {
+                var startH = bd.StartTime.Value.Hour;
+                var endH = bd.EndTime?.Hour ?? closeHour;
+                for (int h = startH; h < endH; h++) blockedSet.Add(h);
+            }
+        }
+
         var now = DateTime.UtcNow;
-        var isToday= date.Date == now.Date;
+        var isToday = date.Date == now.Date;
 
         for (int h = openHour; h < closeHour; h++)
         {
@@ -46,6 +67,7 @@ public class CourtService : ICourtService
             var endTime = $"{h + 1:D2}:00";
             var isPast = isToday && h <= now.Hour;
             var isBooked = bookedSet.Contains(startTime);
+            var isBlocked = blockedSet.Contains(h);
             var slotPrice = await GetPriceForSlotAsync(date, new TimeOnly(h, 0));
 
             slots.Add(new TimeSlotAvailabilityDto(
@@ -53,7 +75,7 @@ public class CourtService : ICourtService
                 date.ToString("yyyy-MM-dd"),
                 startTime,
                 endTime,
-                !isPast && !isBooked,
+                !isPast && !isBooked && !isBlocked,
                 slotPrice
             ));
         }
@@ -180,4 +202,42 @@ public class CourtService : ICourtService
         c.OpenTime.ToString("HH:mm"), c.CloseTime.ToString("HH:mm"),
         c.Dimensions, c.Surface
     );
+
+    // BLOCKED DATES CRUD
+    public async Task<List<BlockedDateDto>> GetBlockedDatesAsync()
+    {
+        return await _db.BlockedDates
+            .OrderBy(b => b.Date)
+            .Select(b => new BlockedDateDto(
+                b.Id.ToString(),
+                b.Date.ToString("yyyy-MM-dd"),
+                b.StartTime.HasValue ? b.StartTime.Value.ToString("HH:mm") : null,
+                b.EndTime.HasValue ? b.EndTime.Value.ToString("HH:mm") : null,
+                b.Reason
+            ))
+            .ToListAsync();
+    }
+
+    public async Task<BlockedDateDto> AddBlockedDateAsync(CreateBlockedDateRequest request)
+    {
+        var blocked = new BlockedDate
+        {
+            Date = DateTime.SpecifyKind(DateTime.Parse(request.Date).Date, DateTimeKind.Utc),
+            StartTime = request.StartTime != null ? TimeOnly.Parse(request.StartTime) : null,
+            EndTime = request.EndTime != null ? TimeOnly.Parse(request.EndTime) : null,
+            Reason = request.Reason
+        };
+        _db.BlockedDates.Add(blocked);
+        await _db.SaveChangesAsync();
+        return new BlockedDateDto(blocked.Id.ToString(), blocked.Date.ToString("yyyy-MM-dd"),
+            request.StartTime, request.EndTime, request.Reason);
+    }
+
+    public async Task DeleteBlockedDateAsync(Guid id)
+    {
+        var blocked = await _db.BlockedDates.FindAsync(id)
+            ?? throw new KeyNotFoundException("Blocked date not found");
+        _db.BlockedDates.Remove(blocked);
+        await _db.SaveChangesAsync();
+    }
 }

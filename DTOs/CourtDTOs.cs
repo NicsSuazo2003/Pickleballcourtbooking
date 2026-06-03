@@ -40,3 +40,18 @@ public record TimeSlotAvailabilityDto(
     bool IsAvailable,
     decimal Price
 );
+
+public record BlockedDateDto(
+    string Id,
+    string Date,
+    string? StartTime,
+    string? EndTime,
+    string? Reason
+);
+
+public record CreateBlockedDateRequest(
+    string Date,
+    string? StartTime,
+    string? EndTime,
+    string? Reason
+);

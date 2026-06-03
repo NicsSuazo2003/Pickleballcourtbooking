@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<TimeSlot> TimeSlots => Set<TimeSlot>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<BlockedDate> BlockedDates => Set<BlockedDate>();
 
     public DbSet<PriceRule> PriceRules => Set<PriceRule>();
 
