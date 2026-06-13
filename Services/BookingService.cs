@@ -68,13 +68,21 @@ public class BookingService : IBookingService
         return MapToDto(booking);
     }
 
-    public async Task<BookingDto?> TrackBookingAsync(string referenceCode, string email) =>
-        await _db.Bookings
-            .Where(b => b.ReferenceCode == referenceCode && b.CustomerEmail == email)
+    public async Task<BookingDto?> TrackBookingAsync(string referenceCode, string email)
+    {
+        var query = _db.Bookings.AsQueryable();
+
+        if (!string.IsNullOrEmpty(referenceCode) && referenceCode != "ANY")
+            query = query.Where(b => b.ReferenceCode == referenceCode);
+
+        if (!string.IsNullOrEmpty(email) && email != "ANY")
+            query = query.Where(b => b.CustomerEmail == email);
+
+        return await query
             .Include(b => b.Slots)
             .Select(b => MapToDto(b))
             .FirstOrDefaultAsync();
-
+    }
     public async Task<List<BookingDto>> GetAllBookingsAsync() =>
         await _db.Bookings
             .Include(b => b.Slots)
