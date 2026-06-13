@@ -76,5 +76,12 @@ public class BookingController : ControllerBase
         var booking = await _booking.AdminUpdateBookingAsync(id, request);
         return Ok(booking);
     }
+    [Authorize(Roles = "admin"), HttpPost("admin-create")]
+    public async Task<ActionResult<BookingDto>> AdminCreate(CreateBookingRequest request)
+    {
+        request = request with { AdminOverride = true };
+        var booking = await _booking.CreateBookingAsync(request);
+        return Ok(booking);
+    }
 
 }

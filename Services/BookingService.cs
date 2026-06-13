@@ -23,21 +23,24 @@ public class BookingService : IBookingService
     {
         var bookingDate = DateTime.SpecifyKind(DateTime.Parse(request.Date).Date, DateTimeKind.Utc);
 
-        // Check for double booking
-        var requestedStartTimes = request.Slots.Select(s => TimeOnly.Parse(s.StartTime)).ToHashSet();
-        var conflictingBookings = await _db.Bookings
-            .Where(b => b.Date.Date == bookingDate.Date && b.Status != "cancelled" && b.Status != "expired")
-            .Include(b => b.Slots)
-            .ToListAsync();
-        var bookedTimes = conflictingBookings
-            .SelectMany(b => b.Slots)
-            .Select(s => s.StartTime)
-            .ToHashSet();
-
-        if (requestedStartTimes.Any(t => bookedTimes.Contains(t)))
-            throw new InvalidOperationException("One or more selected time slots are no longer available.");
+        // Skip double-booking check if admin override
+        if (!request.AdminOverride)
+        {
+            var requestedStartTimes = request.Slots.Select(s => TimeOnly.Parse(s.StartTime)).ToHashSet();
+            var conflictingBookings = await _db.Bookings
+                .Where(b => b.Date.Date == bookingDate.Date && b.Status != "cancelled" && b.Status != "expired")
+                .Include(b => b.Slots)
+                .ToListAsync();
+            var bookedTimes = conflictingBookings
+                .SelectMany(b => b.Slots)
+                .Select(s => s.StartTime)
+                .ToHashSet();
+            if (requestedStartTimes.Any(t => bookedTimes.Contains(t)))
+                throw new InvalidOperationException("One or more selected time slots are no longer available.");
+        }
 
         var referenceCode = $"SOP-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(1000, 9999)}";
+        var bookingStatus = request.Status ?? "pending_payment";
 
         var booking = new Booking
         {
@@ -47,11 +50,10 @@ public class BookingService : IBookingService
             ReferenceCode = referenceCode,
             Date = bookingDate,
             TotalAmount = request.TotalAmount,
-            Status = "pending_payment",
-            PaymentMethod = "gcash",
+            Status = bookingStatus,
+            PaymentMethod = bookingStatus == "confirmed" ? "cash" : "gcash",
             Notes = request.Notes,
             CreatedAt = DateTime.UtcNow,
-            PaymentExpiresAt = DateTime.UtcNow.AddMinutes(30),
             Slots = request.Slots.Select(s => new TimeSlot
             {
                 Date = bookingDate,
@@ -62,17 +64,6 @@ public class BookingService : IBookingService
 
         _db.Bookings.Add(booking);
         await _db.SaveChangesAsync();
-
-        // Notify admin
-        var timeDisplay = $"{request.Slots.First().StartTime}–{request.Slots.Last().EndTime}";
-        try
-        {
-            await _email.NotifyAdminNewBookingAsync(request.CustomerName, referenceCode, request.Date, timeDisplay, $"₱{request.TotalAmount}");
-        }
-        catch (Exception ex)
-        {
-            Console.WriteLine($"Email notification failed: {ex.Message}");
-        }
 
         return MapToDto(booking);
     }

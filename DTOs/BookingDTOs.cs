@@ -7,7 +7,9 @@ public record CreateBookingRequest(
     string Date,
     List<SlotRequest> Slots,
     decimal TotalAmount,
-    string? Notes
+    string? Notes,
+     string? Status = null,        
+    bool AdminOverride = false
 );
 
 public record SlotRequest(string StartTime, string EndTime);
