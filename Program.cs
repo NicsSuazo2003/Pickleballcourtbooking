@@ -50,11 +50,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
         policy.WithOrigins(
-            "http://localhost:5173",
-            "https://sideoutplayground.vercel.app"
+            "http://localhost:5173",                                    // Local dev
+            "https://sideoutplayground.vercel.app",                     // Existing client
+            "https://pickleball-client2.vercel.app",                    // NEW client
+            "https://pickleball-client2-git-*.vercel.app"               // Preview deployments
         )
         .AllowAnyHeader()
-        .AllowAnyMethod());
+        .AllowAnyMethod()
+        .AllowCredentials());
 });
 
 var app = builder.Build();
