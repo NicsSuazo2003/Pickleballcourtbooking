@@ -28,8 +28,8 @@ public class CourtService : ICourtService
 
         var openHour = court.OpenTime.Hour;
         var closeHour = court.CloseTime.Hour;
+        if (closeHour == 0) closeHour = 24; // midnight wraps to 24
 
-        // Batch all queries FIRST
         var bookedTimes = await _db.TimeSlots
             .Where(s => s.Date.Date == date.Date)
             .Join(_db.Bookings.Where(b => b.Status != "cancelled" && b.Status != "expired"),
@@ -40,7 +40,6 @@ public class CourtService : ICourtService
             .Where(b => b.Date.Date == date.Date)
             .ToListAsync();
 
-        // Cache price rules — fetch ONCE
         var priceRules = await _db.PriceRules
             .Where(r => r.IsActive)
             .OrderByDescending(r => r.Priority)
@@ -57,7 +56,11 @@ public class CourtService : ICourtService
             if (bd.StartTime == null)
                 for (int h = openHour; h < closeHour; h++) blockedSet.Add(h);
             else
-                for (int h = bd.StartTime.Value.Hour; h < (bd.EndTime?.Hour ?? closeHour); h++) blockedSet.Add(h);
+            {
+                var endH = bd.EndTime?.Hour ?? closeHour;
+                if (endH == 0) endH = 24;
+                for (int h = bd.StartTime.Value.Hour; h < endH; h++) blockedSet.Add(h);
+            }
         }
 
         var now = DateTime.UtcNow;
@@ -66,15 +69,14 @@ public class CourtService : ICourtService
 
         for (int h = openHour; h < closeHour; h++)
         {
-            var slotTime = new TimeOnly(h, 0);
-            var startTime = $"{h:D2}:00";
-            var endTime = $"{h + 1:D2}:00";
+            var slotTime = new TimeOnly(h % 24, 0);
+            var startTime = $"{h % 24:D2}:00";
+            var endTime = $"{(h + 1) % 24:D2}:00";
             var isPast = isToday && h <= now.Hour;
             var isBooked = bookedSet.Contains(startTime);
             var isBlocked = blockedSet.Contains(h);
 
-            // Calculate price IN MEMORY (no DB call)
-            var slotPrice = court.PricePerHour; // default
+            var slotPrice = court.PricePerHour;
             foreach (var rule in priceRules)
             {
                 var dayMatch = rule.DayOfWeek == "All" || rule.DayOfWeek == dayOfWeek ||
