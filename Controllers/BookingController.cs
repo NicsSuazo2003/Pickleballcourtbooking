@@ -25,7 +25,8 @@ public class BookingController : ControllerBase
     }
 
     [HttpGet("track/{referenceCode}")]
-    public async Task<ActionResult<BookingDto>> Track(string referenceCode, [FromQuery] string email)
+    public async Task<ActionResult<BookingDto>> Track(string referenceCode, [FromQuery] string? email)
+  
     {
         var booking = await _booking.TrackBookingAsync(referenceCode, email);
         if (booking == null) return NotFound(new { message = "Booking not found" });
