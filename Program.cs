@@ -46,13 +46,15 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // CORS for React frontend
+// CORS for React frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
         policy.WithOrigins(
             "http://localhost:5173",                                    // Local dev
-            "https://sideoutplayground.vercel.app",                     // Existing client
-            "https://pickleball-client2.vercel.app",                    // NEW client
+            "https://sideout-playground.vercel.app",                    // ✅ NEW: with hyphen
+            "https://sideoutplayground.vercel.app",                     // Keep old just in case
+            "https://pickleball-client2.vercel.app",                    // Old client (can remove later)
             "https://pickleball-client2-git-*.vercel.app"               // Preview deployments
         )
         .AllowAnyHeader()
