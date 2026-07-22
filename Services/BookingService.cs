@@ -99,6 +99,20 @@ public class BookingService : IBookingService
 
         booking.Status = request.Status;
         await _db.SaveChangesAsync();
+
+        // Send email to customer when confirmed
+        if (request.Status == "confirmed" && !string.IsNullOrEmpty(booking.CustomerEmail))
+        {
+            var timeDisplay = booking.Slots.Any()
+                ? $"{booking.Slots.OrderBy(s => s.StartTime).First().StartTime}–{booking.Slots.OrderBy(s => s.StartTime).Last().EndTime}"
+                : "";
+            _ = Task.Run(async () =>
+            {
+                try { await _email.NotifyCustomerBookingConfirmedAsync(booking.CustomerEmail, booking.CustomerName, booking.ReferenceCode, booking.Date.ToString("yyyy-MM-dd"), timeDisplay); }
+                catch { }
+            });
+        }
+
         return MapToDto(booking);
     }
 

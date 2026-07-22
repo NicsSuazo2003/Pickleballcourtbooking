@@ -66,4 +66,46 @@ public class EmailService
             _logger.LogError(ex, "Email notification failed");
         }
     }
+    public async Task NotifyCustomerBookingConfirmedAsync(string customerEmail, string customerName, string referenceCode, string date, string time)
+    {
+        try
+        {
+            var apiKey = _config["Brevo:ApiKey"];
+            var senderEmail = _config["Brevo:SenderEmail"];
+            var senderName = _config["Brevo:SenderName"];
+
+            var payload = new
+            {
+                sender = new { email = senderEmail, name = senderName },
+                to = new[] { new { email = customerEmail, name = customerName } },
+                subject = $"✅ Booking Confirmed: {referenceCode}",
+                htmlContent = $@"
+                <h3>Your Booking is Confirmed!</h3>
+                <p>Hi {customerName},</p>
+                <p>Your booking <strong>{referenceCode}</strong> has been confirmed.</p>
+                <p><strong>Date:</strong> {date}</p>
+                <p><strong>Time:</strong> {time}</p>
+                <p>See you on the court! 🏓</p>
+                <p><a href='https://sideoutplayground.vercel.app/track'>Track your booking</a></p>
+            "
+            };
+
+            var request = new HttpRequestMessage(HttpMethod.Post, "https://api.brevo.com/v3/smtp/email")
+            {
+                Content = JsonContent.Create(payload)
+            };
+            request.Headers.Add("api-key", apiKey);
+
+            var response = await _http.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                var responseBody = await response.Content.ReadAsStringAsync();
+                _logger.LogError("Brevo customer email failed: {Status} {Body}", response.StatusCode, responseBody);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Customer email notification failed");
+        }
+    }
 }
