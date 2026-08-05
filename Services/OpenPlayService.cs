@@ -9,8 +9,13 @@ namespace PickleballBookingSystem.Services;
 public class OpenPlayService : IOpenPlayService
 {
     private readonly AppDbContext _db;
+    private readonly EmailService _email;
 
-    public OpenPlayService(AppDbContext db) => _db = db;
+    public OpenPlayService(AppDbContext db, EmailService email)
+    {
+        _db = db;
+        _email = email;
+    }
 
     public async Task<List<OpenPlaySessionDto>> GetUpcomingSessionsAsync()
     {
@@ -62,7 +67,6 @@ public class OpenPlayService : IOpenPlayService
 
         _db.OpenPlaySessions.Add(session);
 
-        // Block court if Side Out Playground
         if (!request.IsExternalVenue)
         {
             _db.BlockedDates.Add(new BlockedDate
@@ -84,7 +88,6 @@ public class OpenPlayService : IOpenPlayService
             ?? throw new KeyNotFoundException("Session not found");
         session.Status = status;
 
-        // Remove court block if cancelled
         if (status == "cancelled" && !session.IsExternalVenue)
         {
             var blocks = await _db.BlockedDates
@@ -107,7 +110,6 @@ public class OpenPlayService : IOpenPlayService
             .FirstOrDefaultAsync(s => s.Id == id)
             ?? throw new KeyNotFoundException("Session not found");
 
-        // Remove court block
         if (!session.IsExternalVenue)
         {
             var blocks = await _db.BlockedDates
@@ -165,6 +167,22 @@ public class OpenPlayService : IOpenPlayService
 
         await _db.SaveChangesAsync();
 
+        // Notify admin
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _email.NotifyAdminNewBookingAsync(
+                    request.CustomerName,
+                    registration.ReferenceCode + " [OPEN PLAY]",
+                    session.Date.ToString("yyyy-MM-dd"),
+                    $"{session.StartTime}–{session.EndTime}",
+                    $"₱{session.PricePerPerson}"
+                );
+            }
+            catch { }
+        });
+
         return new OpenPlayRegistrationDto(
             registration.Id.ToString(), registration.SessionId.ToString(),
             registration.CustomerName, registration.CustomerEmail, registration.CustomerPhone,
@@ -188,7 +206,6 @@ public class OpenPlayService : IOpenPlayService
             ?? throw new KeyNotFoundException("Registration not found");
         reg.Status = status;
 
-        // Promote waitlisted if someone cancels
         if (status == "cancelled")
         {
             var session = await _db.OpenPlaySessions
@@ -213,6 +230,29 @@ public class OpenPlayService : IOpenPlayService
         }
 
         await _db.SaveChangesAsync();
+
+        // Send email to customer when confirmed
+        if (status == "confirmed" && !string.IsNullOrEmpty(reg.CustomerEmail))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    var session = await _db.OpenPlaySessions.FindAsync(reg.SessionId);
+                    if (session != null)
+                    {
+                        await _email.NotifyCustomerBookingConfirmedAsync(
+                            reg.CustomerEmail, reg.CustomerName,
+                            reg.ReferenceCode,
+                            session.Date.ToString("yyyy-MM-dd"),
+                            $"{session.StartTime}–{session.EndTime}"
+                        );
+                    }
+                }
+                catch { }
+            });
+        }
+
         return new OpenPlayRegistrationDto(
             reg.Id.ToString(), reg.SessionId.ToString(), reg.CustomerName, reg.CustomerEmail, reg.CustomerPhone,
             reg.Status, reg.ReferenceCode, reg.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
