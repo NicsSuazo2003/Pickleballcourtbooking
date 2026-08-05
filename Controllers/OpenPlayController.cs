@@ -47,34 +47,38 @@ public class OpenPlayController : ControllerBase
     }
 
     [HttpPost("registrations/{id}/upload-payment")]
-    public async Task<ActionResult<OpenPlayRegistrationDto>> UploadPayment(Guid id, IFormFile screenshot)
+public async Task<ActionResult<OpenPlayRegistrationDto>> UploadPayment(Guid id, IFormFile screenshot)
+{
+    if (screenshot == null || screenshot.Length == 0)
+        return BadRequest(new { message = "No file provided" });
+
+    var supabaseUrl = _config["Supabase:Url"]!;
+    var supabaseKey = _config["Supabase:Key"]!;
+    var fileName = $"payment-op-{Guid.NewGuid()}{Path.GetExtension(screenshot.FileName)}";
+
+    using var content = new StreamContent(screenshot.OpenReadStream());
+    content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(screenshot.ContentType);
+
+    var httpRequest = new HttpRequestMessage(HttpMethod.Post,
+        $"{supabaseUrl}/storage/v1/object/PickleImgs/{fileName}")
     {
-        if (screenshot == null || screenshot.Length == 0)
-            return BadRequest(new { message = "No file provided" });
+        Content = content
+    };
+    httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", supabaseKey);
 
-        var supabaseUrl = _config["Supabase:Url"]!;
-        var supabaseKey = _config["Supabase:Key"]!;
-        var fileName = $"payment-op-{Guid.NewGuid()}{Path.GetExtension(screenshot.FileName)}";
+    var http = new HttpClient();
+    var response = await http.SendAsync(httpRequest);
+    if (!response.IsSuccessStatusCode)
+        return BadRequest(new { message = "Upload failed" });
 
-        using var content = new StreamContent(screenshot.OpenReadStream());
-        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(screenshot.ContentType);
-
-        var httpRequest = new HttpRequestMessage(HttpMethod.Post,
-            $"{supabaseUrl}/storage/v1/object/PickleImgs/{fileName}")
-        {
-            Content = content
-        };
-        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", supabaseKey);
-
-        var http = new HttpClient();
-        var response = await http.SendAsync(httpRequest);
-        if (!response.IsSuccessStatusCode)
-            return BadRequest(new { message = "Upload failed" });
-
-        var screenshotUrl = $"{supabaseUrl}/storage/v1/object/public/PickleImgs/{fileName}";
-        var reg = await _openPlay.UpdateRegistrationStatusAsync(id, "payment_submitted");
-        return Ok(reg);
-    }
+    var screenshotUrl = $"{supabaseUrl}/storage/v1/object/public/PickleImgs/{fileName}";
+    
+    // Save screenshot URL and update status
+    var reg = await _openPlay.SavePaymentScreenshotAsync(id, screenshotUrl);
+    await _openPlay.UpdateRegistrationStatusAsync(id, "payment_submitted");
+    
+    return Ok(reg);
+}
 
     [Authorize(Roles = "admin"), HttpPost("sessions")]
     public async Task<ActionResult<OpenPlaySessionDto>> CreateSession(CreateOpenPlaySessionRequest request)

@@ -11,6 +11,8 @@ public interface IOpenPlayService
     Task<OpenPlaySessionDto> UpdateSessionStatusAsync(Guid id, string status);
     Task DeleteSessionAsync(Guid id);
     Task<List<OpenPlaySessionDto>> GetAllSessionsAsync();
+    Task<OpenPlayRegistrationDto> SavePaymentScreenshotAsync(Guid id, string screenshotUrl);
+
 
     // Registrations
     Task<OpenPlayRegistrationDto> RegisterAsync(Guid sessionId, CreateOpenPlayRegistrationRequest request);

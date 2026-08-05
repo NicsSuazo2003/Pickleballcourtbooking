@@ -9,6 +9,7 @@ public class OpenPlayRegistration
     public string? CustomerPhone { get; set; }
     public string Status { get; set; } = "registered";
     public string ReferenceCode { get; set; } = string.Empty;
+    public string? PaymentScreenshot { get; set; }  // NEW
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public OpenPlaySession Session { get; set; } = null!;

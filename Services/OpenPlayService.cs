@@ -167,7 +167,6 @@ public class OpenPlayService : IOpenPlayService
 
         await _db.SaveChangesAsync();
 
-        // Notify admin
         _ = Task.Run(async () =>
         {
             try
@@ -186,7 +185,8 @@ public class OpenPlayService : IOpenPlayService
         return new OpenPlayRegistrationDto(
             registration.Id.ToString(), registration.SessionId.ToString(),
             registration.CustomerName, registration.CustomerEmail, registration.CustomerPhone,
-            registration.Status, registration.ReferenceCode, registration.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            registration.Status, registration.ReferenceCode, registration.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"),
+            registration.PaymentScreenshot
         );
     }
 
@@ -196,7 +196,7 @@ public class OpenPlayService : IOpenPlayService
             .OrderBy(r => r.CreatedAt)
             .Select(r => new OpenPlayRegistrationDto(
                 r.Id.ToString(), r.SessionId.ToString(), r.CustomerName, r.CustomerEmail, r.CustomerPhone,
-                r.Status, r.ReferenceCode, r.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                r.Status, r.ReferenceCode, r.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"), r.PaymentScreenshot
             ))
             .ToListAsync();
 
@@ -231,7 +231,6 @@ public class OpenPlayService : IOpenPlayService
 
         await _db.SaveChangesAsync();
 
-        // Send email to customer when confirmed
         if (status == "confirmed" && !string.IsNullOrEmpty(reg.CustomerEmail))
         {
             _ = Task.Run(async () =>
@@ -255,7 +254,19 @@ public class OpenPlayService : IOpenPlayService
 
         return new OpenPlayRegistrationDto(
             reg.Id.ToString(), reg.SessionId.ToString(), reg.CustomerName, reg.CustomerEmail, reg.CustomerPhone,
-            reg.Status, reg.ReferenceCode, reg.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+            reg.Status, reg.ReferenceCode, reg.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"), reg.PaymentScreenshot
+        );
+    }
+
+    public async Task<OpenPlayRegistrationDto> SavePaymentScreenshotAsync(Guid id, string screenshotUrl)
+    {
+        var reg = await _db.OpenPlayRegistrations.FindAsync(id)
+            ?? throw new KeyNotFoundException("Registration not found");
+        reg.PaymentScreenshot = screenshotUrl;
+        await _db.SaveChangesAsync();
+        return new OpenPlayRegistrationDto(
+            reg.Id.ToString(), reg.SessionId.ToString(), reg.CustomerName, reg.CustomerEmail, reg.CustomerPhone,
+            reg.Status, reg.ReferenceCode, reg.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"), reg.PaymentScreenshot
         );
     }
 
@@ -264,7 +275,7 @@ public class OpenPlayService : IOpenPlayService
             .Where(r => r.ReferenceCode == referenceCode)
             .Select(r => new OpenPlayRegistrationDto(
                 r.Id.ToString(), r.SessionId.ToString(), r.CustomerName, r.CustomerEmail, r.CustomerPhone,
-                r.Status, r.ReferenceCode, r.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ")
+                r.Status, r.ReferenceCode, r.CreatedAt.ToString("yyyy-MM-ddTHH:mm:ssZ"), r.PaymentScreenshot
             ))
             .FirstOrDefaultAsync();
 }

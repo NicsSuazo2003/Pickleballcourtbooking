@@ -15,7 +15,7 @@ public record CreateOpenPlaySessionRequest(
 
 public record OpenPlayRegistrationDto(
     string Id, string SessionId, string CustomerName, string CustomerEmail, string? CustomerPhone,
-    string Status, string ReferenceCode, string CreatedAt
+    string Status, string ReferenceCode, string CreatedAt, string? PaymentScreenshot  // NEW
 );
 
 public record CreateOpenPlayRegistrationRequest(
