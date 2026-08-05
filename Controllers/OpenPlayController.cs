@@ -9,8 +9,13 @@ namespace PickleballBookingSystem.Controllers;
 public class OpenPlayController : ControllerBase
 {
     private readonly IOpenPlayService _openPlay;
+    private readonly IConfiguration _config;
 
-    public OpenPlayController(IOpenPlayService openPlay) => _openPlay = openPlay;
+    public OpenPlayController(IOpenPlayService openPlay, IConfiguration config)
+    {
+        _openPlay = openPlay;
+        _config = config;
+    }
 
     [HttpGet("sessions")]
     public async Task<ActionResult<List<OpenPlaySessionDto>>> GetUpcoming()
@@ -38,6 +43,36 @@ public class OpenPlayController : ControllerBase
     {
         var reg = await _openPlay.TrackRegistrationAsync(referenceCode);
         if (reg == null) return NotFound();
+        return Ok(reg);
+    }
+
+    [HttpPost("registrations/{id}/upload-payment")]
+    public async Task<ActionResult<OpenPlayRegistrationDto>> UploadPayment(Guid id, IFormFile screenshot)
+    {
+        if (screenshot == null || screenshot.Length == 0)
+            return BadRequest(new { message = "No file provided" });
+
+        var supabaseUrl = _config["Supabase:Url"]!;
+        var supabaseKey = _config["Supabase:Key"]!;
+        var fileName = $"payment-op-{Guid.NewGuid()}{Path.GetExtension(screenshot.FileName)}";
+
+        using var content = new StreamContent(screenshot.OpenReadStream());
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(screenshot.ContentType);
+
+        var httpRequest = new HttpRequestMessage(HttpMethod.Post,
+            $"{supabaseUrl}/storage/v1/object/PickleImgs/{fileName}")
+        {
+            Content = content
+        };
+        httpRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", supabaseKey);
+
+        var http = new HttpClient();
+        var response = await http.SendAsync(httpRequest);
+        if (!response.IsSuccessStatusCode)
+            return BadRequest(new { message = "Upload failed" });
+
+        var screenshotUrl = $"{supabaseUrl}/storage/v1/object/public/PickleImgs/{fileName}";
+        var reg = await _openPlay.UpdateRegistrationStatusAsync(id, "payment_submitted");
         return Ok(reg);
     }
 
