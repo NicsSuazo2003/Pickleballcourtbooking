@@ -28,7 +28,7 @@ public class BookingService : IBookingService
         {
             var requestedStartTimes = request.Slots.Select(s => TimeOnly.Parse(s.StartTime)).ToHashSet();
             var conflictingBookings = await _db.Bookings
-                .Where(b => b.Date.Date == bookingDate.Date && b.Status != "cancelled" && b.Status != "expired")
+                .Where(b => b.Date.Date == bookingDate.Date && b.Status != "cancelled" && b.Status != "expired" && b.Status != "refunded")
                 .Include(b => b.Slots)
                 .ToListAsync();
             var bookedTimes = conflictingBookings
@@ -83,6 +83,7 @@ public class BookingService : IBookingService
             .Select(b => MapToDto(b))
             .FirstOrDefaultAsync();
     }
+
     public async Task<List<BookingDto>> GetAllBookingsAsync() =>
         await _db.Bookings
             .Include(b => b.Slots)
@@ -97,6 +98,79 @@ public class BookingService : IBookingService
             .FirstOrDefaultAsync(b => b.Id == id)
             ?? throw new KeyNotFoundException("Booking not found");
 
+        // ============================================================
+        // FIX: Handle REFUND - Delete time slots to free them up
+        // ============================================================
+        if (request.Status == "refunded" && booking.Status != "refunded")
+        {
+            // Remove all associated time slots
+            _db.TimeSlots.RemoveRange(booking.Slots);
+            booking.Slots.Clear();
+            
+            // Update booking status
+            booking.Status = request.Status;
+            
+            await _db.SaveChangesAsync();
+            
+            // Send refund notification email to customer
+            if (!string.IsNullOrEmpty(booking.CustomerEmail))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try 
+                    { 
+                        await _email.NotifyCustomerBookingRefundedAsync(
+                            booking.CustomerEmail, 
+                            booking.CustomerName, 
+                            booking.ReferenceCode,
+                            booking.Date.ToString("yyyy-MM-dd")
+                        ); 
+                    }
+                    catch { }
+                });
+            }
+            
+            return MapToDto(booking);
+        }
+
+        // ============================================================
+        // Handle CANCELLATION - Also free up time slots
+        // ============================================================
+        if (request.Status == "cancelled" && booking.Status != "cancelled")
+        {
+            // Remove all associated time slots to free them up
+            _db.TimeSlots.RemoveRange(booking.Slots);
+            booking.Slots.Clear();
+            
+            // Update booking status
+            booking.Status = request.Status;
+            
+            await _db.SaveChangesAsync();
+            
+            // Send cancellation notification email to customer
+            if (!string.IsNullOrEmpty(booking.CustomerEmail))
+            {
+                _ = Task.Run(async () =>
+                {
+                    try 
+                    { 
+                        await _email.NotifyCustomerBookingCancelledAsync(
+                            booking.CustomerEmail, 
+                            booking.CustomerName, 
+                            booking.ReferenceCode,
+                            booking.Date.ToString("yyyy-MM-dd")
+                        ); 
+                    }
+                    catch { }
+                });
+            }
+            
+            return MapToDto(booking);
+        }
+
+        // ============================================================
+        // Regular status update (non-refund, non-cancellation)
+        // ============================================================
         booking.Status = request.Status;
         await _db.SaveChangesAsync();
 
@@ -160,10 +234,14 @@ public class BookingService : IBookingService
         var now = DateTime.UtcNow;
         var expired = await _db.Bookings
             .Where(b => b.Status == "pending_payment" && b.PaymentExpiresAt < now)
+            .Include(b => b.Slots)
             .ToListAsync();
 
         foreach (var booking in expired)
         {
+            // Free up the time slots when expired
+            _db.TimeSlots.RemoveRange(booking.Slots);
+            booking.Slots.Clear();
             booking.Status = "expired";
         }
         await _db.SaveChangesAsync();
