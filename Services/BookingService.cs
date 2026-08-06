@@ -92,103 +92,98 @@ public class BookingService : IBookingService
             .ToListAsync();
 
     public async Task<BookingDto> AdminUpdateBookingAsync(Guid id, AdminUpdateBookingRequest request)
+{
+    var booking = await _db.Bookings
+        .Include(b => b.Slots)
+        .FirstOrDefaultAsync(b => b.Id == id)
+        ?? throw new KeyNotFoundException("Booking not found");
+
+    // Handle REFUND - Delete time slots to free them up
+    if (request.Status == "refunded" && booking.Status != "refunded")
     {
-        var booking = await _db.Bookings
-            .Include(b => b.Slots)
-            .FirstOrDefaultAsync(b => b.Id == id)
-            ?? throw new KeyNotFoundException("Booking not found");
-
-        // ============================================================
-        // FIX: Handle REFUND - Delete time slots to free them up
-        // ============================================================
-        if (request.Status == "refunded" && booking.Status != "refunded")
-        {
-            // Remove all associated time slots
-            _db.TimeSlots.RemoveRange(booking.Slots);
-            booking.Slots.Clear();
-            
-            // Update booking status
-            booking.Status = request.Status;
-            
-            await _db.SaveChangesAsync();
-            
-            // Send refund notification email to customer
-            if (!string.IsNullOrEmpty(booking.CustomerEmail))
-            {
-                _ = Task.Run(async () =>
-                {
-                    try 
-                    { 
-                        await _email.NotifyCustomerBookingRefundedAsync(
-                            booking.CustomerEmail, 
-                            booking.CustomerName, 
-                            booking.ReferenceCode,
-                            booking.Date.ToString("yyyy-MM-dd")
-                        ); 
-                    }
-                    catch { }
-                });
-            }
-            
-            return MapToDto(booking);
-        }
-
-        // ============================================================
-        // Handle CANCELLATION - Also free up time slots
-        // ============================================================
-        if (request.Status == "cancelled" && booking.Status != "cancelled")
-        {
-            // Remove all associated time slots to free them up
-            _db.TimeSlots.RemoveRange(booking.Slots);
-            booking.Slots.Clear();
-            
-            // Update booking status
-            booking.Status = request.Status;
-            
-            await _db.SaveChangesAsync();
-            
-            // Send cancellation notification email to customer
-            if (!string.IsNullOrEmpty(booking.CustomerEmail))
-            {
-                _ = Task.Run(async () =>
-                {
-                    try 
-                    { 
-                        await _email.NotifyCustomerBookingCancelledAsync(
-                            booking.CustomerEmail, 
-                            booking.CustomerName, 
-                            booking.ReferenceCode,
-                            booking.Date.ToString("yyyy-MM-dd")
-                        ); 
-                    }
-                    catch { }
-                });
-            }
-            
-            return MapToDto(booking);
-        }
-
-        // ============================================================
-        // Regular status update (non-refund, non-cancellation)
-        // ============================================================
+        // ✅ Step 1: Remove all associated time slots
+        _db.TimeSlots.RemoveRange(booking.Slots);
+        booking.Slots.Clear();
+        
+        // ✅ Step 2: Update booking status
         booking.Status = request.Status;
+        
+        // ✅ Step 3: Save everything in one transaction
         await _db.SaveChangesAsync();
-
-        // Send email to customer when confirmed
-        if (request.Status == "confirmed" && !string.IsNullOrEmpty(booking.CustomerEmail))
+        
+        // ✅ Step 4: Send refund notification email
+        if (!string.IsNullOrEmpty(booking.CustomerEmail))
         {
-            var timeDisplay = booking.Slots.Any()
-                ? $"{booking.Slots.OrderBy(s => s.StartTime).First().StartTime}–{booking.Slots.OrderBy(s => s.StartTime).Last().EndTime}"
-                : "";
             _ = Task.Run(async () =>
             {
-                try { await _email.NotifyCustomerBookingConfirmedAsync(booking.CustomerEmail, booking.CustomerName, booking.ReferenceCode, booking.Date.ToString("yyyy-MM-dd"), timeDisplay); }
+                try 
+                { 
+                    await _email.NotifyCustomerBookingRefundedAsync(
+                        booking.CustomerEmail, 
+                        booking.CustomerName, 
+                        booking.ReferenceCode,
+                        booking.Date.ToString("yyyy-MM-dd")
+                    ); 
+                }
                 catch { }
             });
         }
-
+        
         return MapToDto(booking);
     }
+
+    // Handle CANCELLATION - Also free up time slots
+    if (request.Status == "cancelled" && booking.Status != "cancelled")
+    {
+        // Remove all associated time slots to free them up
+        _db.TimeSlots.RemoveRange(booking.Slots);
+        booking.Slots.Clear();
+        
+        // Update booking status
+        booking.Status = request.Status;
+        
+        await _db.SaveChangesAsync();
+        
+        // Send cancellation notification email to customer
+        if (!string.IsNullOrEmpty(booking.CustomerEmail))
+        {
+            _ = Task.Run(async () =>
+            {
+                try 
+                { 
+                    await _email.NotifyCustomerBookingCancelledAsync(
+                        booking.CustomerEmail, 
+                        booking.CustomerName, 
+                        booking.ReferenceCode,
+                        booking.Date.ToString("yyyy-MM-dd")
+                    ); 
+                }
+                catch { }
+            });
+        }
+        
+        return MapToDto(booking);
+    }
+
+    // Regular status update (non-refund, non-cancellation)
+    booking.Status = request.Status;
+    await _db.SaveChangesAsync();
+
+    // Send email to customer when confirmed
+    if (request.Status == "confirmed" && !string.IsNullOrEmpty(booking.CustomerEmail))
+    {
+        var timeDisplay = booking.Slots.Any()
+            ? $"{booking.Slots.OrderBy(s => s.StartTime).First().StartTime}–{booking.Slots.OrderBy(s => s.StartTime).Last().EndTime}"
+            : "";
+        _ = Task.Run(async () =>
+        {
+            try { await _email.NotifyCustomerBookingConfirmedAsync(booking.CustomerEmail, booking.CustomerName, booking.ReferenceCode, booking.Date.ToString("yyyy-MM-dd"), timeDisplay); }
+            catch { }
+        });
+    }
+
+    return MapToDto(booking);
+}
 
     public async Task<BookingDto> UploadPaymentScreenshotAsync(Guid id, string screenshotUrl)
     {
