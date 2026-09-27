@@ -1,5 +1,4 @@
-﻿@'
-using System.Net.Http.Json;
+﻿using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 
 namespace PickleballBookingSystem.Services;
@@ -266,4 +265,3 @@ public class EmailService
         }
     }
 }
-'@ | Set-Content -Path Services/EmailService.cs -Encoding UTF8
