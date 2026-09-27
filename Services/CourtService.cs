@@ -20,83 +20,85 @@ public class CourtService : ICourtService
     }
 
     public async Task<List<TimeSlotAvailabilityDto>> GetAvailabilityAsync(DateTime date)
+{
+    date = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
+
+    var court = await _db.Courts.FirstOrDefaultAsync()
+        ?? throw new KeyNotFoundException("Court not found");
+
+    var openHour = court.OpenTime.Hour;
+    var closeHour = court.CloseTime.Hour;
+    if (closeHour == 0) closeHour = 24;
+
+    // ✅ FIX: Exclude cancelled, expired, AND refunded bookings
+    var bookedTimes = await _db.TimeSlots
+        .Where(s => s.Date.Date == date.Date)
+        .Join(_db.Bookings.Where(b => b.Status != "cancelled" && 
+                                      b.Status != "expired" && 
+                                      b.Status != "refunded"),
+            s => s.BookingId, b => b.Id, (s, b) => s.StartTime)
+        .ToListAsync();
+
+    var blockedDates = await _db.BlockedDates
+        .Where(b => b.Date.Date == date.Date)
+        .ToListAsync();
+
+    var priceRules = await _db.PriceRules
+        .Where(r => r.IsActive)
+        .OrderByDescending(r => r.Priority)
+        .ToListAsync();
+
+    var dayOfWeek = date.DayOfWeek.ToString();
+    var isWeekend = date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday;
+
+    var bookedSet = bookedTimes.Select(t => $"{t.Hour:D2}:00").ToHashSet();
+
+    var blockedSet = new HashSet<int>();
+    foreach (var bd in blockedDates)
     {
-        date = DateTime.SpecifyKind(date.Date, DateTimeKind.Utc);
-
-        var court = await _db.Courts.FirstOrDefaultAsync()
-            ?? throw new KeyNotFoundException("Court not found");
-
-        var openHour = court.OpenTime.Hour;
-        var closeHour = court.CloseTime.Hour;
-        if (closeHour == 0) closeHour = 24; // midnight wraps to 24
-
-        var bookedTimes = await _db.TimeSlots
-            .Where(s => s.Date.Date == date.Date)
-            .Join(_db.Bookings.Where(b => b.Status != "cancelled" && b.Status != "expired"),
-                s => s.BookingId, b => b.Id, (s, b) => s.StartTime)
-            .ToListAsync();
-
-        var blockedDates = await _db.BlockedDates
-            .Where(b => b.Date.Date == date.Date)
-            .ToListAsync();
-
-        var priceRules = await _db.PriceRules
-            .Where(r => r.IsActive)
-            .OrderByDescending(r => r.Priority)
-            .ToListAsync();
-
-        var dayOfWeek = date.DayOfWeek.ToString();
-        var isWeekend = date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday;
-
-        var bookedSet = bookedTimes.Select(t => $"{t.Hour:D2}:00").ToHashSet();
-
-        var blockedSet = new HashSet<int>();
-        foreach (var bd in blockedDates)
+        if (bd.StartTime == null)
+            for (int h = openHour; h < closeHour; h++) blockedSet.Add(h);
+        else
         {
-            if (bd.StartTime == null)
-                for (int h = openHour; h < closeHour; h++) blockedSet.Add(h);
-            else
-            {
-                var endH = bd.EndTime?.Hour ?? closeHour;
-                if (endH == 0) endH = 24;
-                for (int h = bd.StartTime.Value.Hour; h < endH; h++) blockedSet.Add(h);
-            }
+            var endH = bd.EndTime?.Hour ?? closeHour;
+            if (endH == 0) endH = 24;
+            for (int h = bd.StartTime.Value.Hour; h < endH; h++) blockedSet.Add(h);
         }
-
-        var now = DateTime.UtcNow;
-        var isToday = date.Date == now.Date;
-        var slots = new List<TimeSlotAvailabilityDto>();
-
-        for (int h = openHour; h < closeHour; h++)
-        {
-            var slotTime = new TimeOnly(h % 24, 0);
-            var startTime = $"{h % 24:D2}:00";
-            var endTime = $"{(h + 1) % 24:D2}:00";
-            var isPast = isToday && h <= now.Hour;
-            var isBooked = bookedSet.Contains(startTime);
-            var isBlocked = blockedSet.Contains(h);
-
-            var slotPrice = court.PricePerHour;
-            foreach (var rule in priceRules)
-            {
-                var dayMatch = rule.DayOfWeek == "All" || rule.DayOfWeek == dayOfWeek ||
-                               (rule.DayOfWeek == "Weekend" && isWeekend) ||
-                               (rule.DayOfWeek == "Weekday" && !isWeekend);
-                if (dayMatch && slotTime >= rule.StartTime && slotTime < rule.EndTime)
-                {
-                    slotPrice = rule.PricePerHour;
-                    break;
-                }
-            }
-
-            slots.Add(new TimeSlotAvailabilityDto(
-                $"slot-{date:yyyy-MM-dd}-{h}", date.ToString("yyyy-MM-dd"),
-                startTime, endTime, !isPast && !isBooked && !isBlocked, slotPrice));
-        }
-
-        return slots;
     }
 
+    var now = DateTime.UtcNow;
+    var isToday = date.Date == now.Date;
+    var slots = new List<TimeSlotAvailabilityDto>();
+
+    for (int h = openHour; h < closeHour; h++)
+    {
+        var slotTime = new TimeOnly(h % 24, 0);
+        var startTime = $"{h % 24:D2}:00";
+        var endTime = $"{(h + 1) % 24:D2}:00";
+        var isPast = isToday && h <= now.Hour;
+        var isBooked = bookedSet.Contains(startTime);
+        var isBlocked = blockedSet.Contains(h);
+
+        var slotPrice = court.PricePerHour;
+        foreach (var rule in priceRules)
+        {
+            var dayMatch = rule.DayOfWeek == "All" || rule.DayOfWeek == dayOfWeek ||
+                           (rule.DayOfWeek == "Weekend" && isWeekend) ||
+                           (rule.DayOfWeek == "Weekday" && !isWeekend);
+            if (dayMatch && slotTime >= rule.StartTime && slotTime < rule.EndTime)
+            {
+                slotPrice = rule.PricePerHour;
+                break;
+            }
+        }
+
+        slots.Add(new TimeSlotAvailabilityDto(
+            $"slot-{date:yyyy-MM-dd}-{h}", date.ToString("yyyy-MM-dd"),
+            startTime, endTime, !isPast && !isBooked && !isBlocked, slotPrice));
+    }
+
+    return slots;
+}
     public async Task<CourtDto> UpdateCourtSettingsAsync(UpdateCourtRequest request)
     {
         var court = await _db.Courts.FirstOrDefaultAsync()

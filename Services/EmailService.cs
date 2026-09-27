@@ -1,4 +1,5 @@
-﻿using System.Net.Http.Json;
+﻿@'
+using System.Net.Http.Json;
 using System.Text.RegularExpressions;
 
 namespace PickleballBookingSystem.Services;
@@ -8,39 +9,22 @@ public class EmailService
     private readonly IConfiguration _config;
     private readonly ILogger<EmailService> _logger;
 
-    // ═════════════════════════════════════════════════════════════
-    // 🎨 Sideout Playground — Light Theme (Teal & Amber)
-    // ═════════════════════════════════════════════════════════════
-    // Backgrounds
-    private const string OUTER_BG = "#F3F4F6";  // surface
-    private const string BODY_BG = "#FFFFFF";  // card
-    private const string BANNER_BG = "#0D9488";  // primary
-    private const string DIVIDER = "#E5E7EB";  // soft border
+    private const string OUTER_BG   = "#F3F4F6";
+    private const string BODY_BG    = "#FFFFFF";
+    private const string BANNER_BG  = "#0D9488";
+    private const string DIVIDER    = "#E5E7EB";
 
-    // Primary (teal)
-    private const string PRIMARY = "#0D9488";
-    private const string PRIMARY_LIGHT = "#5EEAD4";
-    private const string PRIMARY_DARK = "#0F766E";
+    private const string PRIMARY        = "#0D9488";
+    private const string PRIMARY_LIGHT  = "#5EEAD4";
+    private const string PRIMARY_DARK   = "#0F766E";
+    private const string ACCENT         = "#FBBF24";
+    private const string ACCENT_DARK    = "#F59E0B";
 
-    // Accent (amber) — reserved for highlights
-    private const string ACCENT = "#FBBF24";
-    private const string ACCENT_DARK = "#F59E0B";
-
-    // Typography
-    private const string TEXT_PRIMARY = "#1E293B";
+    private const string TEXT_PRIMARY   = "#1E293B";
     private const string TEXT_SECONDARY = "#64748B";
 
-    // Status colors — match index.css status classes
-    private const string SUCCESS = "#047857";
+    private const string SUCCESS    = "#047857";
     private const string SUCCESS_BG = "#ECFDF5";
-    private const string WARNING = "#B45309";
-    private const string WARNING_BG = "#FFFBEB";
-    private const string DANGER = "#B91C1C";
-    private const string DANGER_BG = "#FEF2F2";
-    private const string INFO = "#1D4ED8";
-    private const string INFO_BG = "#EFF6FF";
-    private const string PURPLE = "#7E22CE";
-    private const string PURPLE_BG = "#FAF5FF";
 
     public EmailService(IConfiguration config, ILogger<EmailService> logger)
     {
@@ -48,9 +32,6 @@ public class EmailService
         _logger = logger;
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // ⏰ Formatters
-    // ═════════════════════════════════════════════════════════════
     private static string FormatTime(string input)
     {
         if (string.IsNullOrWhiteSpace(input)) return input;
@@ -83,9 +64,6 @@ public class EmailService
         return input;
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // 🎨 Layout Wrapper
-    // ═════════════════════════════════════════════════════════════
     private static string WrapLayout(string bannerTitle, string bannerSubtitle, string contentHtml)
     {
         return $@"
@@ -101,10 +79,7 @@ public class EmailService
   <table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0' style='background-color:{OUTER_BG};padding:32px 12px;'>
     <tr>
       <td align='center'>
-
         <table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0' style='max-width:560px;background-color:{BODY_BG};border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(15,23,42,0.08);border:1px solid {DIVIDER};'>
-
-          <!-- ░░ Teal banner header ░░ -->
           <tr>
             <td style='background-color:{BANNER_BG};padding:28px 32px 26px;text-align:left;'>
               <div style='font-size:11px;font-weight:800;letter-spacing:2.5px;color:{PRIMARY_LIGHT};text-transform:uppercase;margin-bottom:8px;font-family:Inter,sans-serif;'>
@@ -118,15 +93,11 @@ public class EmailService
               </div>
             </td>
           </tr>
-
-          <!-- ░░ Body content ░░ -->
           <tr>
             <td style='padding:32px;background-color:{BODY_BG};'>
               {contentHtml}
             </td>
           </tr>
-
-          <!-- ░░ Footer ░░ -->
           <tr>
             <td style='padding:20px 32px 26px;border-top:1px solid {DIVIDER};background-color:{OUTER_BG};'>
               <div style='font-size:11px;color:{TEXT_SECONDARY};text-align:center;line-height:1.7;'>
@@ -135,7 +106,6 @@ public class EmailService
               </div>
             </td>
           </tr>
-
         </table>
       </td>
     </tr>
@@ -144,7 +114,6 @@ public class EmailService
 </html>";
     }
 
-    // 🧱 Key-value row — label above, value below, thin divider between
     private static string KvRow(string label, string value, bool isLast = false)
     {
         var border = isLast ? "" : $"border-bottom:1px solid {DIVIDER};";
@@ -161,7 +130,6 @@ public class EmailService
               </tr>";
     }
 
-    // 🎯 Teal CTA button
     private static string CtaButton(string url, string text)
     {
         return $@"
@@ -176,7 +144,6 @@ public class EmailService
               </table>";
     }
 
-    // 🏷 Status chip — soft tint bg + colored text
     private static string StatusChip(string text, string color, string bgColor)
     {
         return $@"
@@ -185,15 +152,7 @@ public class EmailService
               </div>";
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // 1. ADMIN — New Booking
-    // ═════════════════════════════════════════════════════════════
-    public async Task NotifyAdminNewBookingAsync(
-        string customerName,
-        string referenceCode,
-        string date,
-        string time,
-        string amount)
+    public async Task NotifyAdminNewBookingAsync(string customerName, string referenceCode, string date, string time, string amount)
     {
         try
         {
@@ -210,27 +169,18 @@ public class EmailService
               <p style='margin:0 0 22px;font-size:15px;line-height:1.65;color:{TEXT_SECONDARY};'>
                 A new booking just came in. Review the details below and confirm once payment is verified.
               </p>
-
               <table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'>
                 {KvRow("Customer", customerName)}
                 {KvRow("Reference", referenceCode)}
                 {KvRow("Schedule", $"{prettyDate} · {prettyTime}")}
                 {KvRow("Amount", amount, isLast: true)}
               </table>
-
               {CtaButton($"{frontendUrl}/admin/bookings", "Review in Admin Panel")}
             ";
 
             var html = WrapLayout("New Booking", "A new reservation is waiting for review", content);
-
-            await SendAsync(
-                apiKey,
-                senderEmail,
-                senderName,
-                adminEmail,
-                "Admin",
-                $"🔔 New Booking: {referenceCode} — {customerName}",
-                html);
+            await SendAsync(apiKey, senderEmail, senderName, adminEmail, "Admin",
+                $"🔔 New Booking: {referenceCode} — {customerName}", html);
         }
         catch (Exception ex)
         {
@@ -238,16 +188,7 @@ public class EmailService
         }
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // 2. CUSTOMER — Booking Confirmed
-    // ═════════════════════════════════════════════════════════════
-    public async Task NotifyCustomerBookingConfirmedAsync(
-        string customerEmail,
-        string customerName,
-        string referenceCode,
-        string date,
-        string time,
-        string? amount = null)
+    public async Task NotifyCustomerBookingConfirmedAsync(string customerEmail, string customerName, string referenceCode, string date, string time, string? amount = null)
     {
         try
         {
@@ -268,29 +209,19 @@ public class EmailService
               <p style='margin:0 0 24px;font-size:15px;line-height:1.65;color:{TEXT_SECONDARY};'>
                 Great news — your booking has been <strong style='color:{SUCCESS};font-weight:700;'>confirmed</strong>. See you on the court!
               </p>
-
               {StatusChip("Paid & Confirmed", SUCCESS, SUCCESS_BG)}
-
               <table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'>
                 {KvRow("Reference", referenceCode)}
                 {KvRow("Schedule", $"{prettyDate} · {prettyTime}")}
                 {amountRow}
                 {KvRow("Status", "Confirmed", isLast: true)}
               </table>
-
               {CtaButton($"{frontendUrl}/track", "Track Your Booking")}
             ";
 
             var html = WrapLayout("Booking Confirmed", "Your court is reserved and ready", content);
-
-            await SendAsync(
-                apiKey,
-                senderEmail,
-                senderName,
-                customerEmail,
-                customerName,
-                $"✅ Booking Confirmed: {referenceCode}",
-                html);
+            await SendAsync(apiKey, senderEmail, senderName, customerEmail, customerName,
+                $"✅ Booking Confirmed: {referenceCode}", html);
         }
         catch (Exception ex)
         {
@@ -298,17 +229,7 @@ public class EmailService
         }
     }
 
-    // ═════════════════════════════════════════════════════════════
-    // 🔧 Shared sender
-    // ═════════════════════════════════════════════════════════════
-    private async Task SendAsync(
-        string? apiKey,
-        string? senderEmail,
-        string? senderName,
-        string? toEmail,
-        string toName,
-        string subject,
-        string html)
+    private async Task SendAsync(string? apiKey, string? senderEmail, string? senderName, string? toEmail, string toName, string subject, string html)
     {
         if (string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(senderEmail) || string.IsNullOrEmpty(toEmail))
         {
@@ -345,3 +266,4 @@ public class EmailService
         }
     }
 }
+'@ | Set-Content -Path Services/EmailService.cs -Encoding UTF8

@@ -16,6 +16,9 @@ public class AppDbContext : DbContext
 
     public DbSet<PriceRule> PriceRules => Set<PriceRule>();
 
+    public DbSet<OpenPlaySession> OpenPlaySessions => Set<OpenPlaySession>();
+public DbSet<OpenPlayRegistration> OpenPlayRegistrations => Set<OpenPlayRegistration>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         foreach (var entity in modelBuilder.Model.GetEntityTypes())

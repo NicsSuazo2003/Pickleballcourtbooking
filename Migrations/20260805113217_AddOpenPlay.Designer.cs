@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using PickleballBookingSystem.Data;
@@ -11,9 +12,11 @@ using PickleballBookingSystem.Data;
 namespace PickleballBookingSystem.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260805113217_AddOpenPlay")]
+    partial class AddOpenPlay
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -215,9 +218,6 @@ namespace PickleballBookingSystem.Migrations
                         .HasColumnType("text");
 
                     b.Property<string>("CustomerPhone")
-                        .HasColumnType("text");
-
-                    b.Property<string>("PaymentScreenshot")
                         .HasColumnType("text");
 
                     b.Property<string>("ReferenceCode")
