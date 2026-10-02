@@ -8,21 +8,21 @@ public class EmailService
     private readonly IConfiguration _config;
     private readonly ILogger<EmailService> _logger;
 
-    private const string OUTER_BG   = "#F3F4F6";
-    private const string BODY_BG    = "#FFFFFF";
-    private const string BANNER_BG  = "#0D9488";
-    private const string DIVIDER    = "#E5E7EB";
+    private const string OUTER_BG = "#F3F4F6";
+    private const string BODY_BG = "#FFFFFF";
+    private const string BANNER_BG = "#0D9488";
+    private const string DIVIDER = "#E5E7EB";
 
-    private const string PRIMARY        = "#0D9488";
-    private const string PRIMARY_LIGHT  = "#5EEAD4";
-    private const string PRIMARY_DARK   = "#0F766E";
-    private const string ACCENT         = "#FBBF24";
-    private const string ACCENT_DARK    = "#F59E0B";
+    private const string PRIMARY = "#0D9488";
+    private const string PRIMARY_LIGHT = "#5EEAD4";
+    private const string PRIMARY_DARK = "#0F766E";
+    private const string ACCENT = "#FBBF24";
+    private const string ACCENT_DARK = "#F59E0B";
 
-    private const string TEXT_PRIMARY   = "#1E293B";
+    private const string TEXT_PRIMARY = "#1E293B";
     private const string TEXT_SECONDARY = "#64748B";
 
-    private const string SUCCESS    = "#047857";
+    private const string SUCCESS = "#047857";
     private const string SUCCESS_BG = "#ECFDF5";
 
     public EmailService(IConfiguration config, ILogger<EmailService> logger)
@@ -225,6 +225,88 @@ public class EmailService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Customer email notification failed");
+        }
+    }
+
+    public async Task NotifyCustomerBookingCancelledAsync(string customerEmail, string customerName, string referenceCode, string date)
+    {
+        try
+        {
+            var apiKey = _config["Brevo:ApiKey"];
+            var senderEmail = _config["Brevo:SenderEmail"];
+            var senderName = _config["Brevo:SenderName"];
+            var frontendUrl = _config["App:FrontendUrl"] ?? "https://sideoutplayground.vercel.app";
+
+            var prettyDate = FormatDate(date);
+
+            var content = $@"
+              <p style='margin:0 0 8px;font-size:15px;color:{TEXT_PRIMARY};'>
+                Hi {customerName},
+              </p>
+              <p style='margin:0 0 24px;font-size:15px;line-height:1.65;color:{TEXT_SECONDARY};'>
+                Your booking has been <strong style='color:#DC2626;font-weight:700;'>cancelled</strong>.
+                The time slot has been released and is now available for other players.
+              </p>
+              {StatusChip("Cancelled", "#DC2626", "#FEF2F2")}
+              <table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'>
+                {KvRow("Reference", referenceCode)}
+                {KvRow("Schedule", prettyDate)}
+                {KvRow("Status", "Cancelled", isLast: true)}
+              </table>
+              <p style='margin:24px 0 0;font-size:13px;line-height:1.65;color:{TEXT_SECONDARY};'>
+                If you believe this was a mistake, please contact us or book again at your convenience.
+              </p>
+              {CtaButton($"{frontendUrl}/book", "Book Another Slot")}
+            ";
+
+            var html = WrapLayout("Booking Cancelled", "Your reservation has been released", content);
+            await SendAsync(apiKey, senderEmail, senderName, customerEmail, customerName,
+                $"❌ Booking Cancelled: {referenceCode}", html);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Customer cancellation email failed");
+        }
+    }
+
+    public async Task NotifyCustomerBookingRefundedAsync(string customerEmail, string customerName, string referenceCode, string date)
+    {
+        try
+        {
+            var apiKey = _config["Brevo:ApiKey"];
+            var senderEmail = _config["Brevo:SenderEmail"];
+            var senderName = _config["Brevo:SenderName"];
+            var frontendUrl = _config["App:FrontendUrl"] ?? "https://sideoutplayground.vercel.app";
+
+            var prettyDate = FormatDate(date);
+
+            var content = $@"
+              <p style='margin:0 0 8px;font-size:15px;color:{TEXT_PRIMARY};'>
+                Hi {customerName},
+              </p>
+              <p style='margin:0 0 24px;font-size:15px;line-height:1.65;color:{TEXT_SECONDARY};'>
+                Your booking has been <strong style='color:#7C3AED;font-weight:700;'>refunded</strong>.
+                The amount will reflect in your GCash account within 1–3 business days.
+              </p>
+              {StatusChip("Refunded", "#7C3AED", "#F5F3FF")}
+              <table role='presentation' width='100%' cellpadding='0' cellspacing='0' border='0'>
+                {KvRow("Reference", referenceCode)}
+                {KvRow("Schedule", prettyDate)}
+                {KvRow("Status", "Refunded", isLast: true)}
+              </table>
+              <p style='margin:24px 0 0;font-size:13px;line-height:1.65;color:{TEXT_SECONDARY};'>
+                Thank you for your patience. We hope to see you back on the court soon.
+              </p>
+              {CtaButton($"{frontendUrl}/book", "Book Again")}
+            ";
+
+            var html = WrapLayout("Booking Refunded", "Your payment has been returned", content);
+            await SendAsync(apiKey, senderEmail, senderName, customerEmail, customerName,
+                $"💸 Booking Refunded: {referenceCode}", html);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Customer refund email failed");
         }
     }
 
