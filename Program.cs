@@ -41,6 +41,8 @@ builder.Services.AddScoped<IBookingService, BookingService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IOpenPlayService, OpenPlayService>();
+builder.Services.AddHostedService<BookingExpiryBackgroundService>();
+
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

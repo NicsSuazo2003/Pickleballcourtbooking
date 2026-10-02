@@ -54,6 +54,9 @@ public class BookingService : IBookingService
             PaymentMethod = bookingStatus == "confirmed" ? "cash" : "gcash",
             Notes = request.Notes,
             CreatedAt = DateTime.UtcNow,
+            PaymentExpiresAt = bookingStatus == "pending_payment"
+        ? DateTime.UtcNow.AddMinutes(15)
+        : null,
             Slots = request.Slots.Select(s => new TimeSlot
             {
                 Date = bookingDate,
