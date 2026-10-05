@@ -314,8 +314,8 @@ public class BookingService : IBookingService
         b.Slots
             .OrderBy(s => s.StartTime)
             .Select(s => new TimeSlotDto(
-               Guid.ToString(),
-                s.Date.ToString("yyyy-MM-dd"),
+    s.Id.ToString(),
+    s.Date.ToString("yyyy-MM-dd"),
                 s.StartTime.ToString(@"hh\:mm"),   // TimeSpan format
                 s.EndTime.ToString(@"hh\:mm"),
                 true,                               // slots in a booking are always taken
