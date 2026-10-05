@@ -26,9 +26,9 @@ public class BookingController : ControllerBase
 
     [HttpGet("track/{referenceCode}")]
     public async Task<ActionResult<BookingDto>> Track(string referenceCode, [FromQuery] string? email)
-  
     {
-        var booking = await _booking.TrackBookingAsync(referenceCode, email);
+        // FIX: coalesce nullable query param before passing to non-nullable service signature
+        var booking = await _booking.TrackBookingAsync(referenceCode, email ?? "ANY");
         if (booking == null) return NotFound(new { message = "Booking not found" });
         return Ok(booking);
     }
@@ -77,6 +77,7 @@ public class BookingController : ControllerBase
         var booking = await _booking.AdminUpdateBookingAsync(id, request);
         return Ok(booking);
     }
+
     [Authorize(Roles = "admin"), HttpPost("admin-create")]
     public async Task<ActionResult<BookingDto>> AdminCreate(CreateBookingRequest request)
     {
@@ -85,4 +86,11 @@ public class BookingController : ControllerBase
         return Ok(booking);
     }
 
+    [Authorize(Roles = "admin"), HttpPost("admin/expire-stale")]
+    public async Task<IActionResult> ExpireStale()
+    {
+        await _booking.AutoCompletePastBookingsAsync();
+        await _booking.CancelExpiredPaymentsAsync();
+        return Ok(new { message = "Sweep completed", time = DateTime.UtcNow });
+    }
 }

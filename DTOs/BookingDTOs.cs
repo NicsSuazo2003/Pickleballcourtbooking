@@ -8,7 +8,7 @@ public record CreateBookingRequest(
     List<SlotRequest> Slots,
     decimal TotalAmount,
     string? Notes,
-     string? Status = null,        
+    string? Status = null,
     bool AdminOverride = false
 );
 
@@ -31,12 +31,14 @@ public record BookingDto(
     DateTime? PaymentExpiresAt
 );
 
+// CHANGED: added decimal Price
 public record TimeSlotDto(
     string Id,
     string Date,
     string StartTime,
     string EndTime,
-    bool IsAvailable
+    bool IsAvailable,
+    decimal Price
 );
 
 public record AdminUpdateBookingRequest(string Status);

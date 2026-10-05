@@ -2,11 +2,12 @@
 
 public class TimeSlot
 {
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public Guid BookingId { get; set; }
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public Guid BookingId { get; set; }              // CHANGED: string -> Guid
+    public Booking? Booking { get; set; }
     public DateTime Date { get; set; }
-    public TimeOnly StartTime { get; set; }
-    public TimeOnly EndTime { get; set; }
-
-    public Booking Booking { get; set; } = null!;
+    public TimeSpan StartTime { get; set; }
+    public TimeSpan EndTime { get; set; }
+    public bool IsAvailable { get; set; } = true;
+    public decimal Price { get; set; }
 }
