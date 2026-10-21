@@ -12,7 +12,12 @@ public record CreateBookingRequest(
     bool AdminOverride = false
 );
 
-public record SlotRequest(string StartTime, string EndTime);
+// ✅ FIX: optional Price per slot (client can send 300 for the 16:00–18:00 prime block)
+public record SlotRequest(
+    string StartTime,
+    string EndTime,
+    decimal? Price = null
+);
 
 public record BookingDto(
     string Id,
@@ -31,7 +36,6 @@ public record BookingDto(
     DateTime? PaymentExpiresAt
 );
 
-// CHANGED: added decimal Price
 public record TimeSlotDto(
     string Id,
     string Date,

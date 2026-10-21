@@ -40,7 +40,7 @@ public class BookingService : IBookingService
 
             var bookedTimes = conflictingBookings
                 .SelectMany(b => b.Slots)
-                .Select(s => TimeOnly.FromTimeSpan(s.StartTime))   // TimeSpan -> TimeOnly
+                .Select(s => TimeOnly.FromTimeSpan(s.StartTime))
                 .ToHashSet();
 
             if (requestedStartTimes.Any(t => bookedTimes.Contains(t)))
@@ -50,7 +50,7 @@ public class BookingService : IBookingService
         var referenceCode = $"SOP-{DateTime.UtcNow:yyyyMMdd}-{Random.Shared.Next(1000, 9999)}";
         var bookingStatus = request.Status ?? "pending_payment";
 
-        // ---- Price calculation (mirrors CourtService.GetAvailabilityAsync) ----
+        // ---- Price calculation ----
         var court = await _db.Courts.FirstOrDefaultAsync()
             ?? throw new KeyNotFoundException("Court not found");
 
@@ -63,7 +63,8 @@ public class BookingService : IBookingService
         var isWeekend = bookingDate.DayOfWeek == DayOfWeek.Saturday
                         || bookingDate.DayOfWeek == DayOfWeek.Sunday;
 
-        decimal CalculatePrice(TimeOnly slotTime)
+        // Per-hour rate lookup (unchanged behavior — this is a rate, NOT a slot total)
+        decimal CalculateHourlyRate(TimeOnly slotTime)
         {
             foreach (var rule in priceRules)
             {
@@ -86,15 +87,34 @@ public class BookingService : IBookingService
         {
             var start = TimeOnly.Parse(s.StartTime);
             var end = TimeOnly.Parse(s.EndTime);
-            var price = CalculatePrice(start);
+
+            // ✅ FIX: price by duration, and prefer explicit per-slot price from the client.
+            // If the client sent Price (e.g. 300 for the 16:00–18:00 prime block), use it.
+            // Otherwise compute hourlyRate × hours, so a 16:00–18:00 block = 150 × 2 = 300.
+            decimal price;
+            if (s.Price.HasValue && s.Price.Value > 0m)
+            {
+                price = s.Price.Value;
+            }
+            else
+            {
+                var hours = (decimal)(end.ToTimeSpan() - start.ToTimeSpan()).TotalHours;
+                if (hours <= 0m)
+                    throw new InvalidOperationException(
+                        $"Invalid slot duration for {s.StartTime}–{s.EndTime}");
+
+                var hourlyRate = CalculateHourlyRate(start);
+                price = hourlyRate * hours;
+            }
+
             computedTotal += price;
 
             slots.Add(new TimeSlot
             {
                 Date = bookingDate,
-                StartTime = start.ToTimeSpan(),   // TimeOnly -> TimeSpan for the entity
+                StartTime = start.ToTimeSpan(),
                 EndTime = end.ToTimeSpan(),
-                Price = price                 // NEW
+                Price = price
             });
         }
 
@@ -121,6 +141,8 @@ public class BookingService : IBookingService
 
         return MapToDto(booking);
     }
+
+    // ─── Everything below is unchanged from your file ──────────────────
 
     public async Task<BookingDto?> TrackBookingAsync(string referenceCode, string email)
     {
@@ -156,7 +178,6 @@ public class BookingService : IBookingService
             .FirstOrDefaultAsync(b => b.Id == id)
             ?? throw new KeyNotFoundException("Booking not found");
 
-        // Handle REFUND - Delete time slots to free them up
         if (request.Status == "refunded" && booking.Status != "refunded")
         {
             _db.TimeSlots.RemoveRange(booking.Slots);
@@ -183,7 +204,6 @@ public class BookingService : IBookingService
             return MapToDto(booking);
         }
 
-        // Handle CANCELLATION - Also free up time slots
         if (request.Status == "cancelled" && booking.Status != "cancelled")
         {
             _db.TimeSlots.RemoveRange(booking.Slots);
@@ -210,7 +230,6 @@ public class BookingService : IBookingService
             return MapToDto(booking);
         }
 
-        // Regular status update (non-refund, non-cancellation)
         booking.Status = request.Status;
         await _db.SaveChangesAsync();
 
@@ -277,7 +296,6 @@ public class BookingService : IBookingService
             var lastSlot = booking.Slots.OrderByDescending(s => s.EndTime).FirstOrDefault();
             if (lastSlot == null) continue;
 
-            // TimeSpan.Add on DateTime — no conversion needed
             var bookingEnd = booking.Date.Date.Add(lastSlot.EndTime);
             if (bookingEnd < now) booking.Status = "completed";
         }
@@ -314,12 +332,12 @@ public class BookingService : IBookingService
         b.Slots
             .OrderBy(s => s.StartTime)
             .Select(s => new TimeSlotDto(
-    s.Id.ToString(),
-    s.Date.ToString("yyyy-MM-dd"),
-                s.StartTime.ToString(@"hh\:mm"),   // TimeSpan format
+                s.Id.ToString(),
+                s.Date.ToString("yyyy-MM-dd"),
+                s.StartTime.ToString(@"hh\:mm"),
                 s.EndTime.ToString(@"hh\:mm"),
-                true,                               // slots in a booking are always taken
-                s.Price))                           // NEW
+                true,
+                s.Price))
             .ToList(),
         b.TotalAmount,
         b.Status,
