@@ -88,23 +88,23 @@ public class BookingService : IBookingService
             var start = TimeOnly.Parse(s.StartTime);
             var end = TimeOnly.Parse(s.EndTime);
 
-            // ✅ FIX: price by duration, and prefer explicit per-slot price from the client.
-            // If the client sent Price (e.g. 300 for the 16:00–18:00 prime block), use it.
-            // Otherwise compute hourlyRate × hours, so a 16:00–18:00 block = 150 × 2 = 300.
-            decimal price;
-            if (s.Price.HasValue && s.Price.Value > 0m)
-            {
-                price = s.Price.Value;
-            }
-            else
-            {
-                var hours = (decimal)(end.ToTimeSpan() - start.ToTimeSpan()).TotalHours;
-                if (hours <= 0m)
-                    throw new InvalidOperationException(
-                        $"Invalid slot duration for {s.StartTime}–{s.EndTime}");
+            // 🔒 ALWAYS compute price server-side based on actual duration.
+            // Never trust client-supplied slot prices.
+            var hours = (decimal)(end.ToTimeSpan() - start.ToTimeSpan()).TotalHours;
+            if (hours <= 0m)
+                throw new InvalidOperationException(
+                    $"Invalid slot duration for {s.StartTime}–{s.EndTime}");
 
-                var hourlyRate = CalculateHourlyRate(start);
-                price = hourlyRate * hours;
+            var hourlyRate = CalculateHourlyRate(start);
+            var price = hourlyRate * hours;
+
+            // 🛡️ Prevent overlapping slots inside the same booking.
+            if (slots.Any(existing =>
+                existing.StartTime < end.ToTimeSpan() &&
+                existing.EndTime > start.ToTimeSpan()))
+            {
+                throw new InvalidOperationException(
+                    $"Overlapping slot detected: {s.StartTime}–{s.EndTime}");
             }
 
             computedTotal += price;
