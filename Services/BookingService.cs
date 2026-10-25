@@ -91,7 +91,12 @@ public class BookingService : IBookingService
             // 🔒 ALWAYS compute price server-side based on actual duration.
             // Never trust client-supplied slot prices.
             var hours = (decimal)(end.ToTimeSpan() - start.ToTimeSpan()).TotalHours;
-            if (hours <= 0m)
+
+            // Handle midnight rollover (e.g., 23:00 to 00:00)
+            if (hours < 0m)
+                hours += 24m;
+
+            if (hours <= 0m || hours > 24m)
                 throw new InvalidOperationException(
                     $"Invalid slot duration for {s.StartTime}–{s.EndTime}");
 
@@ -99,9 +104,19 @@ public class BookingService : IBookingService
             var price = hourlyRate * hours;
 
             // 🛡️ Prevent overlapping slots inside the same booking.
+            // We use a safe comparison that accounts for midnight rollover.
+            var startMin = start.Hour * 60 + start.Minute;
+            var endMin = end.Hour * 60 + end.Minute;
+            if (endMin <= startMin) endMin += 24 * 60; // Adjust for midnight
+
             if (slots.Any(existing =>
-                existing.StartTime < end.ToTimeSpan() &&
-                existing.EndTime > start.ToTimeSpan()))
+            {
+                var exStart = existing.StartTime.Hours * 60 + existing.StartTime.Minutes;
+                var exEnd = existing.EndTime.Hours * 60 + existing.EndTime.Minutes;
+                if (exEnd <= exStart) exEnd += 24 * 60;
+
+                return exStart < endMin && exEnd > startMin;
+            }))
             {
                 throw new InvalidOperationException(
                     $"Overlapping slot detected: {s.StartTime}–{s.EndTime}");
