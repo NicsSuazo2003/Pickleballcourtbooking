@@ -31,6 +31,37 @@ public static class DbSeeder
         };
         db.Courts.Add(court);
 
+        // Merch catalog seed
+        var merchSeed = new (string Name, string Category, decimal Price, string Desc)[]
+        {
+    ("Pro Paddle X1",         "paddle",    1899m, "Carbon-fiber face, honeycomb core. Tournament-ready control and power."),
+    ("Starter Paddle Pack",   "paddle",    1299m, "Beginner-friendly 2-paddle set + 4 balls. Ready to play out of the box."),
+    ("Pickleball 3-Pack",     "ball",       249m, "Seamless indoor/outdoor balls, USA Pickleball approved for consistent bounce."),
+    ("Performance Tee",       "apparel",    799m, "Moisture-wicking mesh. Side Out branded. Sizes S–XXL."),
+    ("Court Bag",             "accessory", 1499m, "Holds 2 paddles, balls, bottle, and towel. Water-resistant base."),
+    ("Grip Tape Roll",        "accessory",  199m, "High-tack overgrip. 3 rolls per pack. Sweat-resistant feel."),
+    ("Pickleball Cap",        "apparel",    599m, "Adjustable, embroidered Side Out logo. One size fits most."),
+    ("Paddle Eraser",         "accessory",  149m, "Removes ball residue from paddle faces. Extends paddle life."),
+        };
+
+        for (int i = 0; i < merchSeed.Length; i++)
+        {
+            var (name, cat, price, desc) = merchSeed[i];
+            db.Merch.Add(new Merch
+            {
+                Name = name,
+                Category = cat,
+                Price = price,
+                Description = desc,
+                ImageUrl = "https://images.pexels.com/photos/8224747/pexels-photo-8224747.jpeg",
+                Images = new List<string>(),
+                Stock = 25,
+                IsActive = true,
+                IsFeatured = price >= 1000m,
+                CreatedAt = DateTime.UtcNow.AddDays(-i)
+            });
+        }
+
         // Admin
         var admin = new User
         {

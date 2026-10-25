@@ -42,6 +42,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAdminService, AdminService>();
 builder.Services.AddScoped<IOpenPlayService, OpenPlayService>();
 builder.Services.AddHostedService<BookingExpiryBackgroundService>();
+builder.Services.AddScoped<IMerchService, MerchService>();
 
 
 builder.Services.AddControllers();

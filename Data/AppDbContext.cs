@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
 
     public DbSet<OpenPlaySession> OpenPlaySessions => Set<OpenPlaySession>();
 public DbSet<OpenPlayRegistration> OpenPlayRegistrations => Set<OpenPlayRegistration>();
+    public DbSet<Merch> Merch => Set<Merch>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
